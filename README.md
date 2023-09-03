@@ -54,19 +54,27 @@ Before running the code, make sure you have the following requirements installed
 
 - **Required Python Packages**: Each code file has its own set of required packages listed in their respective README files. Navigate to the code directory and follow the installation instructions in the README file to install the required packages.
 
+![mqtt_broker](https://github.com/last-brain-cell/MQTT_reading_and_db_ops/blob/master/Help/requirements.png)
+
 ### 2. Configuration
 
 #### MQTT Broker
 
 - By default, the code is configured to use the public MQTT broker provided by Eclipse (broker address: `mqtt.eclipseprojects.io`). If you have your own MQTT broker, you can modify the `mqttBroker` variable in the code to use your broker's address.
 
+![mqtt_broker](https://github.com/last-brain-cell/MQTT_reading_and_db_ops/blob/master/Help/mqtt_broker.png)
+
 #### MongoDB Configuration
 
 - Ensure that your MongoDB server is running and accessible. The code is configured to connect to a local MongoDB server by default. If your MongoDB server is hosted remotely or has custom authentication, you can modify the MongoDB connection URL in the code. Example:
 
-    ```python
+![mongodb_compass_connect](https://github.com/last-brain-cell/MQTT_reading_and_db_ops/blob/master/Help/mongodb_compass_connect.png)
+
+   
     db_client = MongoClient("mongodb://your-mongodb-server-address:27017/")
-    ```
+   
+
+![mongodb_connect](https://github.com/last-brain-cell/MQTT_reading_and_db_ops/blob/master/Help/mongodb_connect.png)
 
 ### 3. Running the Code
 
