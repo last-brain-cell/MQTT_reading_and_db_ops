@@ -12,6 +12,7 @@ def on_connect(client, userdata, flags, rc):
 client = mqtt.Client()
 client.on_connect = on_connect
 broker_address = "mqtt.eclipseprojects.io"
+# mqttBroker = "192.168.1.20"
 client.connect(broker_address)
 
 def send_item_data():
@@ -33,7 +34,7 @@ def send_item_data():
 
 
 while True:
-    user_input = input("Press Enter to an scan item")
+    user_input = input("Press Enter to simulate a test scan")
     if user_input == "":
         send_item_data()
     else:
