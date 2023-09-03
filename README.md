@@ -8,7 +8,6 @@ This repository contains code for an inventory management system that utilizes M
 2. [Installation](#installation)
 3. [Usage](#usage)
 4. [Code Structure](#code-structure)
-5. [License](#license)
 
 ## Requirements
 
