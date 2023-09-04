@@ -3,7 +3,6 @@ import time
 import openpyxl
 from pymongo import MongoClient
 
-# Define file paths
 excel_file_path = "HHDG - SpareInventory - excel.xlsx"
 timestamp_file_path = "last_modified"
 
@@ -40,7 +39,7 @@ def check_for_excel_updates():
             for row in sheet.iter_rows(min_row=2, values_only=True):
                 mach_desc, maker_desc, material, material_desc, part_no, rob = row[2:8]
                 product_id = material.split('.')[-1]  # Extract the product ID from MATERIAL_DESC
-
+                print(f"Product id: {material}")
                 # Create or update a document in the MongoDB collection
                 filter_query = {"Location": "ZONE3-6-32", "Box": "B-043", "RFID.PRODUCT": product_id}
                 update_data = {
@@ -70,4 +69,4 @@ def check_for_excel_updates():
 if __name__ == "__main__":
     while True:
         check_for_excel_updates()
-        time.sleep(10)  # Sleep for 10 sec before the next check
+        time.sleep(30)  # Sleep for 30 sec before the next check
