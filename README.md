@@ -1,4 +1,4 @@
-# Inventory Management System
+# MQTT Subscriber
 
 This repository contains code for an inventory management system that utilizes MQTT for data communication and MongoDB for data storage. The system manages product information and updates it based on incoming data from RFID scans. Below are instructions on how to set up and use the system.
 
