@@ -5,7 +5,7 @@ from pymongo import MongoClient
 
 # Define file paths
 excel_file_path = "HHDG - SpareInventory - excel.xlsx"
-timestamp_file_path = "last_modified.txt"
+timestamp_file_path = "last_modified"
 
 # Connect to MongoDB
 db_client = MongoClient("mongodb://127.0.0.1:27017/")
@@ -25,7 +25,7 @@ def check_for_excel_updates():
         # If the timestamp file doesn't exist, consider it as the first run
         stored_timestamp = None
 
-    # If the file has been modified or it's the first run
+    # If the file has been modified, or it's the first run
     if stored_timestamp is None or current_timestamp > stored_timestamp:
         print("Excel file has been modified. Updating the database...")
 
@@ -33,7 +33,30 @@ def check_for_excel_updates():
             # Load the Excel workbook
             workbook = openpyxl.load_workbook(excel_file_path)
 
-            # Your logic to update the database goes here
+            # Get the sheet you want to update
+            sheet = workbook["main"]
+
+            # Iterate through rows in the sheet (excluding the header row)
+            for row in sheet.iter_rows(min_row=2, values_only=True):
+                mach_desc, maker_desc, material, material_desc, part_no, rob = row[2:8]
+                product_id = material.split('.')[-1]  # Extract the product ID from MATERIAL_DESC
+
+                # Create or update a document in the MongoDB collection
+                filter_query = {"Location": "ZONE3-6-32", "Box": "B-043", "RFID.PRODUCT": product_id}
+                update_data = {
+                    "$set": {
+                        "RFID.$.MACH_DESC": mach_desc,
+                        "RFID.$.MAKER_DESC": maker_desc,
+                        "RFID.$.MATERIAL": material,
+                        "RFID.$.MATERIAL_DESC": material_desc,
+                        "RFID.$.PART_NO": part_no,
+                        "RFID.$.ROB": rob
+                    }
+                }
+                print(f"Filter Query: {filter_query}")
+                print(f"Update Data: {update_data}")
+
+                collection.update_one(filter_query, update_data, upsert=True)
 
             # Update the stored timestamp with the current timestamp
             with open(timestamp_file_path, 'w') as file:
@@ -45,7 +68,6 @@ def check_for_excel_updates():
 
 
 if __name__ == "__main__":
-    # Run the update check every 10 sec
     while True:
         check_for_excel_updates()
         time.sleep(10)  # Sleep for 10 sec before the next check
