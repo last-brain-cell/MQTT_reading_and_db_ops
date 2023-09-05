@@ -37,49 +37,136 @@ def on_message(client, userdata, message):
     append_to_database(data, extracted_data)
 
 # Function to append data to the MongoDB database
+# def append_to_database(data, extracted_data):
+    # db = db_client["Product_Management"]
+    # collection = db["products"]
+    #
+    # # Filter to find a document with the same "Location" and "Box" values
+    # filter_query = {
+    #     "Location": data.get("Location", ""),
+    #     "Box": data.get("Box", ""),
+    # }
+    #
+    # # Try to find an existing document
+    # existing_document = collection.find_one(filter_query)
+    #
+    # if existing_document:
+    #     existing_rfid_entries = existing_document.get("RFID", [])
+    #
+    #     existing_rfid_entries_map = {entry.get("PRODUCT"): index for index, entry in enumerate(existing_rfid_entries)}
+    #
+    #     # Update or add new RFID entries
+    #     for rfid_entry in data.get("RFID", []):
+    #         product_id = rfid_entry.get("PRODUCT")
+    #         extracted_data_entry = extracted_data.get(product_id, {})
+    #
+    #         if product_id in existing_rfid_entries_map:
+    #             index = existing_rfid_entries_map[product_id]
+    #             existing_rfid_entries[index].update({**rfid_entry, **extracted_data_entry})
+    #         else:
+    #             existing_rfid_entries.append({**rfid_entry, **extracted_data_entry})
+    #
+    #     collection.update_one(filter_query, {"$set": {"RFID": existing_rfid_entries}})
+    #     print(f"Updated existing document for {data.get('Box', '')} in the database")
+    # else:
+    #     # Create a new entry
+    #     new_entry = {
+    #         "Location": data.get("Location", ""),
+    #         "Box": data.get("Box", ""),
+    #         "RFID": [
+    #             {**rfid_entry, **extracted_data.get(rfid_entry["PRODUCT"], {})}
+    #             for rfid_entry in data.get("RFID", [])
+    #         ]
+    #     }
+    #     collection.insert_one(new_entry)
+    #     print(f"Added new document for {data.get('Box', '')} to the database")
+    # Function to append data to the MongoDB database
+
+# Function to append data to the MongoDB database
 def append_to_database(data, extracted_data):
     db = db_client["Product_Management"]
     collection = db["products"]
 
-    # Filter to find a document with the same "Location" and "Box" values
+    # Extract location and box from the data
+    location = data.get("Location", "")
+    box = data.get("Box", "")
+    product_ids = [entry["PRODUCT"] for entry in data["RFID"]]
+
+    # Filter to find all documents containing any of the product IDs in the RFID data
     filter_query = {
-        "Location": data.get("Location", ""),
-        "Box": data.get("Box", ""),
+        "RFID.PRODUCT": {"$in": product_ids},
     }
 
-    # Try to find an existing document
-    existing_document = collection.find_one(filter_query)
+    # Find all documents matching the filter query
+    matching_documents = collection.find(filter_query)
 
-    if existing_document:
+    for existing_document in matching_documents:
         existing_rfid_entries = existing_document.get("RFID", [])
 
-        existing_rfid_entries_map = {entry.get("PRODUCT"): index for index, entry in enumerate(existing_rfid_entries)}
+        # Create a set to keep track of existing product IDs in this box
+        existing_product_ids = set(entry.get("PRODUCT") for entry in existing_rfid_entries)
 
-        # Update or add new RFID entries
-        for rfid_entry in data.get("RFID", []):
-            product_id = rfid_entry.get("PRODUCT")
-            extracted_data_entry = extracted_data.get(product_id, {})
+        # Check if all new products match the existing ones
+        all_new_products_exist = all(product_id in existing_product_ids for product_id in product_ids)
 
-            if product_id in existing_rfid_entries_map:
-                index = existing_rfid_entries_map[product_id]
-                existing_rfid_entries[index].update({**rfid_entry, **extracted_data_entry})
-            else:
-                existing_rfid_entries.append({**rfid_entry, **extracted_data_entry})
+        if all_new_products_exist:
+            # If all new products already exist in this box, delete the entire entry
+            collection.delete_one({"_id": existing_document["_id"]})
+            print(f"Deleted existing document for {existing_document['Box']} at {existing_document['Location']} from the database")
+        else:
+            # Create a list to store updated RFID entries
+            updated_rfid_entries = []
 
-        collection.update_one(filter_query, {"$set": {"RFID": existing_rfid_entries}})
-        print(f"Updated existing document for {data.get('Box', '')} in the database")
-    else:
-        # Create a new entry
+            # Update or add new RFID entries
+            for rfid_entry in data.get("RFID", []):
+                product_id = rfid_entry.get("PRODUCT")
+                extracted_data_entry = extracted_data.get(product_id, {})
+
+                if product_id in existing_product_ids:
+                    # If the product already exists in this box, remove it
+                    existing_rfid_entries = [entry for entry in existing_rfid_entries if entry.get("PRODUCT") != product_id]
+                else:
+                    # Check if the product exists in other boxes at the same location
+                    for existing_box_document in collection.find({
+                        "Location": location,
+                        "Box": {"$ne": box},
+                        "RFID.PRODUCT": product_id
+                    }):
+                        # Remove the product from other boxes at the same location
+                        existing_box_rfid_entries = existing_box_document.get("RFID", [])
+                        existing_box_rfid_entries = [entry for entry in existing_box_rfid_entries if
+                                                     entry.get("PRODUCT") != product_id]
+                        # Update the existing box document
+                        collection.update_one({"_id": existing_box_document["_id"]},
+                                              {"$set": {"RFID": existing_box_rfid_entries}})
+
+                    # Add the new RFID entry to this box
+                    updated_rfid_entries.append({**rfid_entry, **extracted_data_entry})
+
+            # Extend the existing entries with the updated RFID entries
+            existing_rfid_entries.extend(updated_rfid_entries)
+
+            # Update the existing box document
+            collection.update_one({"_id": existing_document["_id"]}, {"$set": {"RFID": existing_rfid_entries}})
+            print(f"Updated existing document for {existing_document['Box']} at {existing_document['Location']} in the database")
+
+    # If no matching documents are found, create a new entry
+    new_entry_query = {
+        "Location": location,
+        "Box": box,
+    }
+    if not collection.find_one(new_entry_query):
         new_entry = {
-            "Location": data.get("Location", ""),
-            "Box": data.get("Box", ""),
+            "Location": location,
+            "Box": box,
             "RFID": [
                 {**rfid_entry, **extracted_data.get(rfid_entry["PRODUCT"], {})}
                 for rfid_entry in data.get("RFID", [])
             ]
         }
         collection.insert_one(new_entry)
-        print(f"Added new document for {data.get('Box', '')} to the database")
+        print(f"Added new document for {box} at {location} to the database")
+
 
 # Function to process product data
 def process(product_id):
