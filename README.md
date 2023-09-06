@@ -13,6 +13,7 @@ This repository contains code for an inventory management system that utilizes M
 
 Before getting started, make sure you have the following requirements installed:
 
+- Git
 - Python 3.11
 - MongoDB
 - Required Python packages (see individual code README files for details)
@@ -20,6 +21,8 @@ Before getting started, make sure you have the following requirements installed:
 ## Installation
 
 1. Clone the repository to your local machine:
+
+   [Download Git](https://git-scm.com/downloads)
 
    ```bash
    git clone https://github.com/yourusername/inventory-management.git
@@ -33,7 +36,7 @@ Before getting started, make sure you have the following requirements installed:
 
    ```bash
    pip install -r requirements.txt
-
+   ```
 
 4. Install MongoDB:
 
