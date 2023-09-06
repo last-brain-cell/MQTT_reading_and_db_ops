@@ -25,7 +25,7 @@ Before getting started, make sure you have the following requirements installed:
    [Download Git](https://git-scm.com/downloads)
 
    ```bash
-   git clone https://github.com/yourusername/inventory-management.git
+   git clone https://github.com/last-brain-cell/MQTT_reading_and_db_ops.git
    ```
 
 2. Install Python 3.11:
