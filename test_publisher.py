@@ -85,7 +85,18 @@ def send_item_data():
             {"SERIALNO": "45324335", "PRODUCT": "9015365", "EPC": "301A94B9E2631C8002B3982F", "COMPANY": "CAS"},
         ]
     }
-    message = json.dumps(scan)
+    scan1 = {
+        "TimeStamp": "2023-02-15 14:30:45",
+        "Device": "PDA2",
+        "Location": f"Zone{zone}-{level}-{box}",
+        "Box": f"B-{box}",
+        "RFID": [
+            {"SERIALNO": "45324335", "PRODUCT": "9015365", "EPC": "301A94B9E2631C8002B3982F", "COMPANY": "CAS"},
+            {"SERIALNO": "45324335", "PRODUCT": "9015364", "EPC": "301A94B9E2631C8002B3982F", "COMPANY": "CAS"},
+        ]
+    }
+    # message = json.dumps(scan)
+    message = json.dumps(scan1)
 
     if int(input("Enter 0 for inbound and 1 for outbound.")) == 1:
         topic = "Outbound"
