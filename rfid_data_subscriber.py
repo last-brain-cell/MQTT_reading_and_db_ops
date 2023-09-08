@@ -1,9 +1,15 @@
 import json
 import csv
-
+import chardet
 from pymongo import MongoClient
 import paho.mqtt.client as mqtt
 
+import sys
+import locale  # Import the locale module
+
+# Set the desired locale (replace with your desired locale)
+new_locale = 'en_US.UTF-8'
+locale.setlocale(locale.LC_ALL, new_locale)
 
 # Connect to the MongoDB database
 db_client = MongoClient("mongodb://127.0.0.1:27017/")
@@ -25,15 +31,25 @@ def on_connect(client, userdata, flags, rc):
         connected = False
 
 def on_message(client, userdata, message):
-    payload = message.payload.decode("utf-8")
-    data = json.loads(payload)
+    print(sys.getdefaultencoding())
+    print(message.payload)
+    # Detect the encoding of the payload
+    # encoding = chardet.detect(message.payload)['encoding']
+    try:
+        # payload = message.payload.decode(encoding, errors='replace')
+        payload = message.payload.decode("utf-8")
+        data = json.loads(payload)
+    # payload = message.payload.decode("utf-8")
+    # # payload = message.payload.decode('cp949', errors='replace')
+    # data = json.loads(payload)
 
-    if message.topic == "Inbound":
-        handle_inbound(data=data)
+        if message.topic == "Inbound":
+            handle_inbound(data=data)
 
-    if message.topic == "Outbound":
-        handle_outbound(data=data)
-
+        if message.topic == "Outbound":
+            handle_outbound(data=data)
+    except Exception as e:
+        print(f"Error decoding payload: {e}")
 def handle_inbound(data):
     for rfid_item in data["RFID"]:
         product = rfid_item | extract_info(product_id=f"VS.{rfid_item['COMPANY']}.{rfid_item['PRODUCT']}") | {
@@ -49,8 +65,20 @@ def handle_inbound(data):
     print("Documents Updated/ Inserted")
 
 def handle_outbound(data):
-    [collection.delete_one({"PRODUCT": f"VS.{rfid_item['COMPANY']}.{rfid_item['PRODUCT']}"}) for rfid_item in data["RFID"]]
-    print("Documents Deleted")
+    # [collection.delete_one({"PRODUCT": f"VS.{rfid_item['COMPANY']}.{rfid_item['PRODUCT']}"}) for rfid_item in data["RFID"]]
+    # print("Documents Deleted")
+    for rfid_item in data["RFID"]:
+        product = rfid_item | extract_info(product_id=f"VS.{rfid_item['COMPANY']}.{rfid_item['PRODUCT']}") | {
+            "Zone": "Zone0-0-0",
+            "Box": "B-{}".format("0"),
+            "ZONE": 0,
+            "LEVEL": 0,
+            "BOX": "0",
+        }
+
+        product_id_filter = {"PRODUCT": f"VS.{rfid_item['COMPANY']}.{rfid_item['PRODUCT']}"}
+        collection.update_one(product_id_filter, {"$set": product}, upsert=True)
+    print("Documents added to Zone0-0-0")
 
 def extract_info(product_id):
     with open(file_path, mode='r') as file:
@@ -82,9 +110,10 @@ def extract_info(product_id):
     return matched_item
 
 
-# MQTT Broker Configuration
+# MQTT Broker Configuration#
 mqttBroker = "mqtt.eclipseprojects.io"
 # mqttBroker = "192.168.1.20"
+
 
 # MQTT Client Configuration
 client = mqtt.Client("RFID", clean_session=False)

@@ -98,8 +98,8 @@ def send_item_data():
             {"SERIALNO": "45324335", "PRODUCT": "9008239", "EPC": "301A94B9E2631C8002B3982F", "COMPANY": "BWS"},
         ]
     }
-    # message = json.dumps(scan)
-    message = json.dumps(scan1)
+    message = json.dumps(scan)
+    # message = json.dumps(scan1)
 
     if int(input("Enter 0 for inbound and 1 for outbound.")) == 1:
         topic = "Outbound"
