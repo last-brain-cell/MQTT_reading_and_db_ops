@@ -1,13 +1,12 @@
 import json
 import csv
-import chardet
 from pymongo import MongoClient
 import paho.mqtt.client as mqtt
-
 import sys
-import locale  # Import the locale module
+import locale
+import datetime
+from pytz import timezone
 
-# Set the desired locale (replace with your desired locale)
 new_locale = 'en_US.UTF-8'
 locale.setlocale(locale.LC_ALL, new_locale)
 
@@ -15,6 +14,7 @@ locale.setlocale(locale.LC_ALL, new_locale)
 db_client = MongoClient("mongodb://127.0.0.1:27017/")
 db = db_client["Product_Management"]
 collection = db["products"]
+messages_collection = db["Messages"]
 
 file_path = "HHDG - SpareInventory.xlsx - HHDG - SpareInventory.csv"
 
@@ -33,23 +33,38 @@ def on_connect(client, userdata, flags, rc):
 def on_message(client, userdata, message):
     print(sys.getdefaultencoding())
     print(message.payload)
-    # Detect the encoding of the payload
-    # encoding = chardet.detect(message.payload)['encoding']
+    print("UserData: {}".format(userdata))
+    print("Client: {}".format(client))
+    time_stamp = datetime.datetime.now(timezone('Asia/Kolkata'))
+
     try:
-        # payload = message.payload.decode(encoding, errors='replace')
         payload = message.payload.decode("utf-8")
         data = json.loads(payload)
-    # payload = message.payload.decode("utf-8")
-    # # payload = message.payload.decode('cp949', errors='replace')
-    # data = json.loads(payload)
 
-        if message.topic == "Inbound":
-            handle_inbound(data=data)
+        try:
+            if message.topic == "Inbound":
+                out = handle_inbound(data=data)
+            if message.topic == "Outbound":
+                out = handle_outbound(data=data)
+            else:
+                out = {"message": "No message yet on subscribed topics"}
+            messages_collection.insert_one({"status": 'successful run without errors', "Timestamp": time_stamp} | out | {"payload": data})
 
-        if message.topic == "Outbound":
-            handle_outbound(data=data)
+        except Exception as e:
+            print(e)
+            messages_collection.insert_one({
+                "status": 'EXCEPTION / ERROR',
+                "Timestamp": time_stamp,
+                "Error Message": e,
+            })
     except Exception as e:
-        print(f"Error decoding payload: {e}")
+        messages_collection.insert_one({
+            "status": 'EXCEPTION / ERROR',
+            "Timestamp": time_stamp,
+            "Error Message": e,
+        })
+
+
 def handle_inbound(data):
     for rfid_item in data["RFID"]:
         product = rfid_item | extract_info(product_id=f"VS.{rfid_item['COMPANY']}.{rfid_item['PRODUCT']}") | {
@@ -63,10 +78,10 @@ def handle_inbound(data):
         product_id_filter = {"PRODUCT": f"VS.{rfid_item['COMPANY']}.{rfid_item['PRODUCT']}"}
         collection.update_one(product_id_filter, {"$set": product}, upsert=True)
     print("Documents Updated/ Inserted")
+    return {'message': "Documents Updated/ Inserted", "topic": "Inbound"}
+
 
 def handle_outbound(data):
-    # [collection.delete_one({"PRODUCT": f"VS.{rfid_item['COMPANY']}.{rfid_item['PRODUCT']}"}) for rfid_item in data["RFID"]]
-    # print("Documents Deleted")
     for rfid_item in data["RFID"]:
         product = rfid_item | extract_info(product_id=f"VS.{rfid_item['COMPANY']}.{rfid_item['PRODUCT']}") | {
             "Zone": "Zone0-0-0",
@@ -79,6 +94,7 @@ def handle_outbound(data):
         product_id_filter = {"PRODUCT": f"VS.{rfid_item['COMPANY']}.{rfid_item['PRODUCT']}"}
         collection.update_one(product_id_filter, {"$set": product}, upsert=True)
     print("Documents added to Zone0-0-0")
+    return {'message': "Documents added to Zone0-0-0", "topic": "Outbound"}
 
 def extract_info(product_id):
     with open(file_path, mode='r') as file:
@@ -101,25 +117,26 @@ def extract_info(product_id):
 
     matched_item = {
         'PRODUCT': product_id,
-        'MACH_DESC': "not found",
-        'MAKER_DESC': "not found",
-        'MATERIAL': "not found",
-        'PART_NO': "not found",
-        'ROB': "not found",
+        'MACH_DESC': "unavailable",
+        'MAKER_DESC': "unavailable",
+        'MATERIAL': "unavailable",
+        'MATERIAL_DESC': "unavailable",
+        'PART_NO': "unavailable",
+        'ROB': "unavailable",
     }
     return matched_item
 
 
-# MQTT Broker Configuration#
-mqttBroker = "mqtt.eclipseprojects.io"
+# MQTT Broker Configuration
+# mqttBroker = "mqtt.eclipseprojects.io"
 # mqttBroker = "192.168.1.20"
-
+mqttBroker = "localhost"
 
 # MQTT Client Configuration
 client = mqtt.Client("RFID", clean_session=False)
 print("MQTT Broker: {}".format(mqttBroker))
 client.on_connect = on_connect
-client.on_message = on_message  # Message listener
+client.on_message = on_message
 
 client.connect(mqttBroker)
 
